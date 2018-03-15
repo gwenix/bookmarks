@@ -1,0 +1,1 @@
+I'm not happy with most bookmarking tools out there right now, so I'm starting to make my own. As I pick up more skills in other languages, I'll make a more robust web system with those, but for the immediate moment I'm going to start fleshing out the database with my known language: perl.
