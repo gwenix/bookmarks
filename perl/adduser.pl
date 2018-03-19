@@ -29,17 +29,24 @@ my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",
 # ------+----------+----
 
 # check to make sure they aren't already there.
-my $query = qq(SELECT name FROM users WHERE username = \'$username\';);
+my $query = qq(SELECT name FROM users WHERE username = \'$user\';);
+#print "$query\n";
 my $sth = $dbh->prepare($query);
 $sth->execute();
-die "User $user already exists\n" if ($sth->fetchrow_array);
+if (my @row = $sth->fetchrow_array) {
+  $sth->finish();
+  $dbh->disconnect();
+  die "User $user already exists.\n";
+}
 $sth->finish();
 
 $query = qq(INSERT INTO users (username, name) VALUES (\'$user\', \'$name\'););
-print "Executing $query\n";
-my $sth = $dbh->prepare($query);
-$sth->execute();
-$sth->finish();
+#print "Executing $query\n";
+$dbh->do($query);
+$dbh->commit;
+
 
 print "Added $user\n";
 $dbh->disconnect();
+
+
