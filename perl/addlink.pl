@@ -2,6 +2,7 @@
 
 use DBI;
 use strict;
+use LWP::Simple;
 
 # Getting the URL
 my $url = shift(@ARGV);
@@ -12,23 +13,36 @@ die "not a URL, please use ./addlinks [url]\n" if ($url !~ /^http/);
 my $dbname = 'linkdb';  
 my $host = 'localhost';  
 my $port = 5432;  
-my $username = 'gwen';  
-my $password = 'woodwell'; 
+my $dbuser = 'gwen';  
+my $dbpw = 'password123';  # yah, will do better passwording later
+my $uname = 'gwenix';
 
 my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",  
-                            $username,
-                            $password,
+                            $dbuser,
+                            $dbpw,
                             {AutoCommit => 0, RaiseError => 1}
                          ) or die $DBI::errstr;
 
 # Other vars
-my ($tagline, $name, $description);
+my ($tagline, $name, $description); #Stuff to feed the database
 
-# Collecting the data
+# Collecting the data for the link
 print "Adding $url ... \n";
-$name = GetInput("Name?");
+my $html = get($url);
+$html =~ m{<TITLE>(.*?)</TITLE>}gism;
+$name = $1;
+print "Name: $title\n";
+
+# url table:
+#  id | address | name | last_updated | created | created_by 
+# ----+---------+------+--------------+---------+------------
+
+
+
+#$name = GetInput("Name?");
 $description = GetInput("Description?");
 $tagline = GetInput("Tags (comma to separate)?");
+
 
 
 # Separating the tags
