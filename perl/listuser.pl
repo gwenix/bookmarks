@@ -20,11 +20,13 @@ my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",
 #  name | username | id 
 # ------+----------+----
 
-my $query = qq(SELECT * FROM users);
+my $query = qq(SELECT (id,username,name) FROM users);
 my $sth = $dbh->prepare($query);
 $sth->execute();
+print "id\tusername\tname\n";
 while (my @row = $sth->fetchrow_array) {
-  my $out = join (",", @row);
+  print "$row[0]";
+  my $out = join ("\t", @row);
   print "$out\n";
 }
 $sth->finish();

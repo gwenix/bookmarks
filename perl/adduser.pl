@@ -28,9 +28,18 @@ my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",
 #  name | username | id 
 # ------+----------+----
 
-my $query = qq(INSERT INTO users (username, name)
-		VALUES (\'$user\', \'$name\'););
-my $commit = $dbh->do($query) or die $DBI::errstr;
+# check to make sure they aren't already there.
+my $query = qq(SELECT name FROM users WHERE username = \'$username\';);
+my $sth = $dbh->prepare($query);
+$sth->execute();
+die "User $user already exists\n" if ($sth->fetchrow_array);
+$sth->finish();
+
+$query = qq(INSERT INTO users (username, name) VALUES (\'$user\', \'$name\'););
+print "Executing $query\n";
+my $sth = $dbh->prepare($query);
+$sth->execute();
+$sth->finish();
 
 print "Added $user\n";
 $dbh->disconnect();
