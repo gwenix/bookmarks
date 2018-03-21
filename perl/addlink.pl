@@ -24,28 +24,69 @@ my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",
                          ) or die $DBI::errstr;
 
 # Other vars
-my ($tagline, $name, $description); #Stuff to feed the database
+my ($tagline, $name, $description, $uid); #Stuff to feed the database
 
-# Collecting the data for the link
-print "Adding $url ... \n";
-my $html = get($url);
-$html =~ m{<TITLE>(.*?)</TITLE>}gism;
-$name = $1;
-print "Name: $title\n";
+$description = GetInput("Description?");
+$tagline = GetInput("Tags (comma to separate)?");
+
+$uid = GetUID($uname);
 
 # url table:
 #  id | address | name | last_updated | created | created_by 
 # ----+---------+------+--------------+---------+------------
 
+$name = GetName($url);
+my $query = qq(INSERT INTO url (address,name,last_updated,created_by) VALUES ('$url','$name',now(),$uid););
+my $sth = $dbh->prepare($query);
+$sth->execute();
+$sth->finish();
 
+# bookmarks table:
+#  urlid | ratingid | description | owned_by | created_at | id 
+# -------+----------+-------------+----------+------------+----
 
-#$name = GetInput("Name?");
-$description = GetInput("Description?");
-$tagline = GetInput("Tags (comma to separate)?");
+sub GetUID {
+  my $user = shift();
+  my $id;
 
+  # users table:
+  #      name     | username | id 
+  # --------------+----------+----
 
+  my $query = qq(SELECT id FROM users WHERE username='$user';);
+  my $sth = $dbh->prepare($query);
+  $sth->execute();
+  if(my @row = $sth->fetchrow_array) {
+    #print "ID: @row\n";
+    $id=$row[0];
+  } else {
+    die "No user found: $user\n";
+  } 
+  $sth->finish();
 
-# Separating the tags
+  return $id;
+}
+
+sub GetName {
+  my $url = shift();
+
+  # Collecting the data for the link
+  my $html = get($url);
+  $html =~ m{<TITLE>(.*?)</TITLE>}gism;
+  $name = $1;
+  $name = Sanitize($name);
+
+  print "Name: $name\n";
+  return $name;
+}
+
+sub Sanitize {
+  my $word = shift();
+
+  $word =~ s/\'//g;
+
+  return $word;
+}
 
 sub GetInput {
   my $prompt = shift();
