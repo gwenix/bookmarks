@@ -23,27 +23,49 @@ my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",
                             {AutoCommit => 0, RaiseError => 1}
                          ) or die $DBI::errstr;
 
+$dbh->trace(1,"trace.log");
+
 # Other vars
-my ($tagline, $name, $description, $uid); #Stuff to feed the database
+my ($tagline, $description, $uid); #Stuff to feed the database
 
 $description = GetInput("Description?");
 $tagline = GetInput("Tags (comma to separate)?");
 
 $uid = GetUID($uname);
 
-# url table:
-#  id | address | name | last_updated | created | created_by 
-# ----+---------+------+--------------+---------+------------
-
-$name = GetName($url);
-my $query = qq(INSERT INTO url (address,name,last_updated,created_by) VALUES ('$url','$name',now(),$uid););
-my $sth = $dbh->prepare($query);
-$sth->execute();
-$sth->finish();
-
 # bookmarks table:
 #  urlid | ratingid | description | owned_by | created_at | id 
 # -------+----------+-------------+----------+------------+----
+
+
+sub AddURL {
+  my ($url,$uid) = @_;
+  my $query;
+
+  if UrlExists($url) {
+    # do nothing at this time
+  } else {
+    my $name = GetName($url);
+    $query = qq(INSERT INTO url (address,name,last_updated,created_by) VALUES ('$url','$name',now(),$uid););
+    $dbh->do($query);
+    $dbh->commit or die $DBI::errstr;
+  }
+
+  #next up, return the urlid....
+}
+
+sub UrlExists {
+  my $url = shift();
+
+  my $query = qq(SELECT * FROM url WHERE address = "$url";);
+
+  my $sth = $dbh->prepare($query);
+  $sth->execute();
+  if(my @row = $sth->fetchrow_array) {
+    return 1;
+  }
+  return 0;
+}
 
 sub GetUID {
   my $user = shift();
