@@ -33,10 +33,17 @@ $tagline = GetInput("Tags (comma to separate)?");
 
 $uid = GetUID($uname);
 
+my $urlid = AddURL($url);
+
 # bookmarks table:
 #  urlid | ratingid | description | owned_by | created_at | id 
 # -------+----------+-------------+----------+------------+----
 
+# next up, add the bookmark.
+
+# ----------- #
+# Subroutines #
+# ----------- #
 
 sub AddURL {
   my ($url,$uid) = @_;
@@ -51,18 +58,24 @@ sub AddURL {
     $dbh->commit or die $DBI::errstr;
   }
 
-  #next up, return the urlid....
+  my $urlid = $UrlExists($url);
+  if ($urlid) {
+    return $urlid;
+  } else {
+    die "URL $url not added.\n";
+  }
+  return 0; #should not reach here, but just in case...
 }
 
 sub UrlExists {
   my $url = shift();
 
-  my $query = qq(SELECT * FROM url WHERE address = "$url";);
+  my $query = qq(SELECT id FROM url WHERE address = "$url";);
 
   my $sth = $dbh->prepare($query);
   $sth->execute();
   if(my @row = $sth->fetchrow_array) {
-    return 1;
+    return $row[0];
   }
   return 0;
 }
