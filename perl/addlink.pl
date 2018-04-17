@@ -34,16 +34,53 @@ $tagline = GetInput("Tags (comma to separate)?");
 $uid = GetUID($uname);
 
 my $urlid = AddURL($url);
+my $bookmarkid = AddBookmark($urlid,$description,$uid);
 
-# bookmarks table:
-#  urlid | ratingid | description | owned_by | created_at | id 
-# -------+----------+-------------+----------+------------+----
-
-# next up, add the bookmark.
+#Next, add the tags.
 
 # ----------- #
 # Subroutines #
 # ----------- #
+
+sub AddBookmark {
+# bookmarks table:
+#  urlid | ratingid | description | owned_by | created_at | id 
+# -------+----------+-------------+----------+------------+----
+  my ($urlid, $desc, $uid) = @_;
+  my $query;
+
+
+  if BookmarkExists($urlid) {
+    # do nothing at this time
+  } else {
+    $query = qq(INSERT INTO bookmarks (urlid,description,owned_by,created_at) VALUES ('$urlid','$desc',$uid,now()););
+    $dbh->do($query);
+    $dbh->commit or die $DBI::errstr;
+  }
+
+  my $bmid = BookmarkExists($url);
+  if ($bmid) {
+    return $bmid;
+  } else {
+    die "Bookmark $bmid not added.\n";
+  }
+  return 0; #should not reach here, but just in case...
+}
+
+sub BookmarkExists {
+  #return entry if found, 0 if not
+  my $urlid = shift();
+
+  my $query = qq(SELECT id FROM bookmarks WHERE urlid  = "$urlid";);
+
+  my $sth = $dbh->prepare($query);
+  $sth->execute();
+  if(my @row = $sth->fetchrow_array) {
+    return $row[0];
+  }
+  return 0;
+}
+
 
 sub AddURL {
   my ($url,$uid) = @_;
@@ -58,7 +95,7 @@ sub AddURL {
     $dbh->commit or die $DBI::errstr;
   }
 
-  my $urlid = $UrlExists($url);
+  my $urlid = UrlExists($url);
   if ($urlid) {
     return $urlid;
   } else {
@@ -68,6 +105,7 @@ sub AddURL {
 }
 
 sub UrlExists {
+  #return entry if found, 0 if not
   my $url = shift();
 
   my $query = qq(SELECT id FROM url WHERE address = "$url";);
@@ -95,6 +133,7 @@ sub GetUID {
     #print "ID: @row\n";
     $id=$row[0];
   } else {
+    # should not get here. If we do, something is wrong.
     die "No user found: $user\n";
   } 
   $sth->finish();
