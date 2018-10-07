@@ -4,22 +4,24 @@ use DBI;
 use strict;
 use LWP::Simple;
 
+use File::Basename qw(dirname);
+use Cwd qw(abs_path);
+use lib dirname(dirname abs_path $0) . '/perl/lib';
+
+use Gwen::Auth qw(ReadAuth);
+
 # Getting the URL
 my $url = shift(@ARGV);
 $url = lc($url);
 die "not a URL, please use ./addlinks [url]\n" if ($url !~ /^http/);
 
-# Database connection
-my $dbname = 'linkdb';  
-my $host = 'localhost';  
-my $port = 5432;  
-my $dbuser = 'gwen';  
-my $dbpw = 'password123';  # yah, will do better passwording later
-my $uname = 'gwenix';
+# Get auth credential info
+my $authf = "cred";
+my %cred = %{ ReadAuth($authf) };
 
-my $dbh = DBI -> connect("dbi:Pg:dbname=$dbname;host=$host;port=$port",  
-                            $dbuser,
-                            $dbpw,
+my $dbh = DBI -> connect("dbi:Pg:dbname=$cred{name};host=$cred{host};port=$cred{port}",  
+                            $cred{user},
+                            $cred{pw},
                             {AutoCommit => 0, RaiseError => 1}
                          ) or die $DBI::errstr;
 
@@ -31,136 +33,58 @@ my ($tagline, $description, $uid); #Stuff to feed the database
 $description = GetInput("Description?");
 $tagline = GetInput("Tags (comma to separate)?");
 
-$uid = GetUID($uname);
+# Get the UID of the user in use. (At the immediate moment, that's just me)
 
-my $urlid = AddURL($url);
-my $bookmarkid = AddBookmark($urlid,$description,$uid);
+my $query = qq(SELECT id FROM users WHERE username='$cred{uname}';);
+my $sth = $dbh->prepare($query);
+$sth->execute();
+if(my @row = $sth->fetchrow_array) {
+  print "ID: @row\n";
+  $uid=$row[0];
+} else {
+  # should not get here. If we do, something is wrong.
+  die "No user found: $cred{uname}\n";
+} 
+$sth->finish();
 
-#Next, add the tags.
+# check to see if the URL already exists.
+
+my $urlexists=0;
+
+$query = qq(
+  select id
+  from url
+  where address='$url';
+);
+my $sth = $dbh->prepare($query);
+$sth->execute();
+if(my @row = $sth->fetchrow_array) {
+  print "URL Exists, adding it.\n";
+  $urlexists=1;
+}
+$sth->finish();
+
+# if it did exist, check to see if this user already has a bookmark: add if not.
+if ($urlexists) {
+  print "not yet implemented.\n";
+
+
+# If it does not, add the URL and the bookmark
+} else {
+  print "Need to add URL and bookmark next.\n";
+}
+
+
+# Update the tags.
+
+# Clean up and exit
+
+$dbh->disconnect();
+exit(1);
 
 # ----------- #
 # Subroutines #
 # ----------- #
-
-sub AddBookmark {
-# bookmarks table:
-#  urlid | ratingid | description | owned_by | created_at | id 
-# -------+----------+-------------+----------+------------+----
-  my ($urlid, $desc, $uid) = @_;
-  my $query;
-
-
-  if BookmarkExists($urlid) {
-    # do nothing at this time
-  } else {
-    $query = qq(INSERT INTO bookmarks (urlid,description,owned_by,created_at) VALUES ('$urlid','$desc',$uid,now()););
-    $dbh->do($query);
-    $dbh->commit or die $DBI::errstr;
-  }
-
-  my $bmid = BookmarkExists($url);
-  if ($bmid) {
-    return $bmid;
-  } else {
-    die "Bookmark $bmid not added.\n";
-  }
-  return 0; #should not reach here, but just in case...
-}
-
-sub BookmarkExists {
-  #return entry if found, 0 if not
-  my $urlid = shift();
-
-  my $query = qq(SELECT id FROM bookmarks WHERE urlid  = "$urlid";);
-
-  my $sth = $dbh->prepare($query);
-  $sth->execute();
-  if(my @row = $sth->fetchrow_array) {
-    return $row[0];
-  }
-  return 0;
-}
-
-
-sub AddURL {
-  my ($url,$uid) = @_;
-  my $query;
-
-  if UrlExists($url) {
-    # do nothing at this time
-  } else {
-    my $name = GetName($url);
-    $query = qq(INSERT INTO url (address,name,last_updated,created_by) VALUES ('$url','$name',now(),$uid););
-    $dbh->do($query);
-    $dbh->commit or die $DBI::errstr;
-  }
-
-  my $urlid = UrlExists($url);
-  if ($urlid) {
-    return $urlid;
-  } else {
-    die "URL $url not added.\n";
-  }
-  return 0; #should not reach here, but just in case...
-}
-
-sub UrlExists {
-  #return entry if found, 0 if not
-  my $url = shift();
-
-  my $query = qq(SELECT id FROM url WHERE address = "$url";);
-
-  my $sth = $dbh->prepare($query);
-  $sth->execute();
-  if(my @row = $sth->fetchrow_array) {
-    return $row[0];
-  }
-  return 0;
-}
-
-sub GetUID {
-  my $user = shift();
-  my $id;
-
-  # users table:
-  #      name     | username | id 
-  # --------------+----------+----
-
-  my $query = qq(SELECT id FROM users WHERE username='$user';);
-  my $sth = $dbh->prepare($query);
-  $sth->execute();
-  if(my @row = $sth->fetchrow_array) {
-    #print "ID: @row\n";
-    $id=$row[0];
-  } else {
-    # should not get here. If we do, something is wrong.
-    die "No user found: $user\n";
-  } 
-  $sth->finish();
-
-  return $id;
-}
-
-sub GetName {
-  my $url = shift();
-
-  # Collecting the data for the link
-  my $html = get($url);
-  $html =~ m{<TITLE>(.*?)</TITLE>}gism;
-  $name = $1;
-  $name = Sanitize($name);
-
-  print "Name: $name\n";
-  return $name;
-}
-
-sub Sanitize {
-  my $word = shift();
-
-  $word =~ s/\'//g;
-
-  return $word;
-}
 
 sub GetInput {
   my $prompt = shift();
