@@ -2,7 +2,7 @@
 
 use DBI;
 use strict;
-use LWP::Simple;
+use WWW::Mechanize;
 
 use File::Basename qw(dirname);
 use Cwd qw(abs_path);
@@ -71,7 +71,34 @@ if ($urlexists) {
 
 # If it does not, add the URL and the bookmark
 } else {
-  print "Need to add URL and bookmark next.\n";
+  # find the url name
+  my $mech = WWW::Mechanize->new();
+  $mech->get( $url );
+  my $title = $mech->title();
+
+  $query = qq(
+    insert into url
+    (address, name, last_updated, created, created_by)
+    values
+    ('$url', '$title', now(), now(), $uid);
+  );
+  print $query;
+  #print "Adding the URL...\n";
+  #$sth = $dbh->prepare($query);
+  #$sth->execute();
+  #$sth->finish();
+  $query = qq(
+    select *
+    from url
+    where address="$url";
+  );
+  #$sth = $dbh->prepare($query);
+  #$sth->execute();
+  #if(my @row = $sth->fetchrow_array) {
+    #my $str = join (",",@row);
+    #print "URL added: $str\n";
+  #}
+  #$sth->finish();
 }
 
 
