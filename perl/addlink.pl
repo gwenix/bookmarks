@@ -10,6 +10,8 @@ use lib dirname(dirname abs_path $0) . '/perl/lib';
 
 use Gwen::Auth qw(ReadAuth);
 
+$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+
 # Getting the URL
 my $url = shift(@ARGV);
 $url = lc($url);
@@ -77,28 +79,29 @@ if ($urlexists) {
   my $title = $mech->title();
 
   $query = qq(
-    insert into url
+    INSERT INTO url
     (address, name, last_updated, created, created_by)
-    values
-    ('$url', '$title', now(), now(), $uid);
+    VALUES
+    (\'$url\', \'$title\', now(), now(), $uid);
   );
   print $query;
-  #print "Adding the URL...\n";
-  #$sth = $dbh->prepare($query);
-  #$sth->execute();
-  #$sth->finish();
+  print "Adding the URL...\n";
+  $sth = $dbh->prepare($query);
+  $sth->execute();
+  $sth->finish();
   $query = qq(
     select *
     from url
-    where address="$url";
+    where address=\'$url\';
   );
-  #$sth = $dbh->prepare($query);
-  #$sth->execute();
-  #if(my @row = $sth->fetchrow_array) {
-    #my $str = join (",",@row);
-    #print "URL added: $str\n";
-  #}
-  #$sth->finish();
+  print "Added, found: ";
+  $sth = $dbh->prepare($query);
+  $sth->execute();
+  if(my @row = $sth->fetchrow_array) {
+    my $str = join (",",@row);
+    print "URL added: $str\n";
+  }
+  $sth->finish();
 }
 
 
